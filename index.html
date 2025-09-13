@@ -1,73 +1,71 @@
 <!DOCTYPE HTML>
-<html lang = "en">
-	<head>
-<!-- OpenLayers -->
-<script src="https://unpkg.com/ol/dist/ol.js"></script>
-<link rel="stylesheet" href="https://unpkg.com/ol/ol.css">
+<html lang="en">
+<head>
+  <!-- OpenLayers -->
+  <script src="https://unpkg.com/ol/dist/ol.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/ol/ol.css">
+  <!-- ol-mapbox-style -->
+  <script src="https://unpkg.com/ol-mapbox-style/dist/olms.js"></script>
+</head>
+<body>
+  <div id="map" style="width: 100%; height: 500px"></div>
+  <script>
+    // Create the base group/layer
+    const openfreemap = new ol.layer.Group();
 
-<!-- ol-mapbox-style -->
-<script src="https://unpkg.com/ol-mapbox-style/dist/olms.js"></script>
-	</head>
-	<body>		
-<div id="map" style="width: 100%; height: 500px"></div>
-<script>
+    // Initial center (Berlin)
+    const initialCenter = ol.proj.fromLonLat([13.388, 52.517]);
 
-/*const markerStyle = new ol.style.Style({
-  image: new ol.style.Icon({
-    anchor: [0.5, 1],
-    src: 'C:/Users/Admin/Desktop/location.png', // Replace with your custom icon
-    scale: 0.1 // Adjust size
-  })
-});*/
+    // Create the map
+    const map = new ol.Map({
+      layers: [openfreemap],
+      view: new ol.View({center: initialCenter, zoom: 9.5}),
+      target: 'map'
+    });
+    olms.apply(openfreemap, 'https://tiles.openfreemap.org/styles/liberty');
 
+    // --- Create marker feature ---
+    const marker = new ol.Feature({
+      geometry: new ol.geom.Point(initialCenter)
+    });
 
-  const openfreemap = new ol.layer.Group();
-  const map = new ol.Map({
-    layers: [openfreemap],
-    view: new ol.View({center: ol.proj.fromLonLat([13.388, 52.517]), zoom: 9.5}),
-    target: 'map'
-  })
-  olms.apply(openfreemap, 'https://tiles.openfreemap.org/styles/liberty');
-  
-  navigator.geolocation.watchPosition((position) => {
-  const lon = position.coords.longitude;
-  const lat = position.coords.latitude;
-  const userLocation = ol.proj.fromLonLat([lon, lat]);
+    const markerStyle = new ol.style.Style({
+      image: new ol.style.Icon({
+        anchor: [0.5, 1],
+        src: 'location.png', // Your icon
+        scale: 0.05
+      })
+    });
 
-  // Center the map on user's location
-  map.getView().setCenter(userLocation);
-  map.getView().setZoom(15);
+    marker.setStyle(markerStyle);
 
-  // Create a marker
-  const marker = new ol.Feature({
-    geometry: new ol.geom.Point(userLocation)
-  });
+    const vectorSource = new ol.source.Vector({
+      features: [marker]
+    });
 
-  const vectorSource = new ol.source.Vector({
-    features: [marker]
-  });
+    const vectorLayer = new ol.layer.Vector({
+      source: vectorSource
+    });
 
-  const markerStyle = new ol.style.Style({
-    image: new ol.style.Icon({
-      anchor: [0.5, 1],
-      src: 'location.png', // You can use any icon URL
-      scale: 0.05
-    })
-  });
+    map.addLayer(vectorLayer);
 
-  const vectorLayer = new ol.layer.Vector({
-    source: vectorSource,
-    style: markerStyle
-  });
+    // --- Geolocation Watch ---
+    navigator.geolocation.watchPosition((position) => {
+      const lon = position.coords.longitude;
+      const lat = position.coords.latitude;
+      const userLocation = ol.proj.fromLonLat([lon, lat]);
 
-  map.addLayer(vectorLayer);
-}, (error) => {
-  console.error('Geolocation error:', error.message);
-  alert('Unable to access your location. Please enable GPS or location services.');
-});
+      // Update marker position
+      marker.getGeometry().setCoordinates(userLocation);
 
+      // Center the map on user's location (optional, or only on first update)
+      map.getView().setCenter(userLocation);
+      map.getView().setZoom(15);
 
-</script>
-	</body>
-
+    }, (error) => {
+      console.error('Geolocation error:', error.message);
+      alert('Unable to access your location. Please enable GPS or location services.');
+    });
+  </script>
+</body>
 </html>
