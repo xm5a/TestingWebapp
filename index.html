@@ -49,23 +49,44 @@
 
     map.addLayer(vectorLayer);
 
-    // --- Geolocation Watch ---
-    navigator.geolocation.watchPosition((position) => {
-      const lon = position.coords.longitude;
-      const lat = position.coords.latitude;
-      const userLocation = ol.proj.fromLonLat([lon, lat]);
+// ... (previous map setup code)
 
-      // Update marker position
-      marker.getGeometry().setCoordinates(userLocation);
+// --- Geofence code ---
+const geofenceCenter = ol.proj.fromLonLat([13.388, 52.517]);
+const geofenceRadius = 500; // meters
+const geofence = new ol.Feature(new ol.geom.Circle(geofenceCenter, geofenceRadius));
+geofence.setStyle(new ol.style.Style({
+  stroke: new ol.style.Stroke({ color: 'red', width: 2 }),
+  fill: new ol.style.Fill({ color: 'rgba(255,0,0,0.15)' })
+}));
+const geofenceLayer = new ol.layer.Vector({
+  source: new ol.source.Vector({ features: [geofence] })
+});
+map.addLayer(geofenceLayer);
 
-      // Center the map on user's location (optional, or only on first update)
-      map.getView().setCenter(userLocation);
-      map.getView().setZoom(15);
+let wasInsideGeofence = false;
 
-    }, (error) => {
-      console.error('Geolocation error:', error.message);
-      alert('Unable to access your location. Please enable GPS or location services.');
-    });
+navigator.geolocation.watchPosition((position) => {
+  const lon = position.coords.longitude;
+  const lat = position.coords.latitude;
+  const userLocation = ol.proj.fromLonLat([lon, lat]);
+  marker.getGeometry().setCoordinates(userLocation);
+  map.getView().setCenter(userLocation);
+  map.getView().setZoom(15);
+
+  // Geofencing check
+  const circle = geofence.getGeometry();
+  const inside = ol.extent.containsCoordinate(circle.getExtent(), userLocation) &&
+                 circle.intersectsCoordinate(userLocation);
+
+  if (inside && !wasInsideGeofence) {
+    alert('You have entered the geofenced area!');
+  } else if (!inside && wasInsideGeofence) {
+    alert('You have exited the geofenced area!');
+  }
+  wasInsideGeofence = inside;
+}, ...);
   </script>
 </body>
 </html>
+
