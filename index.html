@@ -10,13 +10,9 @@
 <body>
   <div id="map" style="width: 100%; height: 500px"></div>
   <script>
-    // Create the base group/layer
+    // === Map setup ===
     const openfreemap = new ol.layer.Group();
-
-    // Initial center (Berlin)
     const initialCenter = ol.proj.fromLonLat([13.388, 52.517]);
-
-    // Create the map
     const map = new ol.Map({
       layers: [openfreemap],
       view: new ol.View({center: initialCenter, zoom: 9.5}),
@@ -24,69 +20,66 @@
     });
     olms.apply(openfreemap, 'https://tiles.openfreemap.org/styles/liberty');
 
-    // --- Create marker feature ---
+    // === Marker setup ===
     const marker = new ol.Feature({
       geometry: new ol.geom.Point(initialCenter)
     });
-
     const markerStyle = new ol.style.Style({
       image: new ol.style.Icon({
         anchor: [0.5, 1],
-        src: 'location.png', // Your icon
+        src: 'location.png',
         scale: 0.05
       })
     });
-
     marker.setStyle(markerStyle);
-
-    const vectorSource = new ol.source.Vector({
-      features: [marker]
-    });
-
-    const vectorLayer = new ol.layer.Vector({
-      source: vectorSource
-    });
-
+    const vectorSource = new ol.source.Vector({ features: [marker] });
+    const vectorLayer = new ol.layer.Vector({ source: vectorSource });
     map.addLayer(vectorLayer);
 
-// ... (previous map setup code)
+    // === Geofence setup ===
+    const geofenceCenter = initialCenter; // Same as initial center
+    const geofenceRadius = 500; // meters
+    const geofenceFeature = new ol.Feature(new ol.geom.Circle(geofenceCenter, geofenceRadius));
+    geofenceFeature.setStyle(new ol.style.Style({
+      stroke: new ol.style.Stroke({ color: 'red', width: 2 }),
+      fill: new ol.style.Fill({ color: 'rgba(255,0,0,0.15)' })
+    }));
+    const geofenceLayer = new ol.layer.Vector({
+      source: new ol.source.Vector({ features: [geofenceFeature] })
+    });
+    map.addLayer(geofenceLayer);
 
-// --- Geofence code ---
-const geofenceCenter = ol.proj.fromLonLat([13.388, 52.517]);
-const geofenceRadius = 500; // meters
-const geofence = new ol.Feature(new ol.geom.Circle(geofenceCenter, geofenceRadius));
-geofence.setStyle(new ol.style.Style({
-  stroke: new ol.style.Stroke({ color: 'red', width: 2 }),
-  fill: new ol.style.Fill({ color: 'rgba(255,0,0,0.15)' })
-}));
-const geofenceLayer = new ol.layer.Vector({
-  source: new ol.source.Vector({ features: [geofence] })
-});
-map.addLayer(geofenceLayer);
+    // === Geofencing logic ===
+    let wasInsideGeofence = false;
 
-let wasInsideGeofence = false;
+    navigator.geolocation.watchPosition((position) => {
+      const lon = position.coords.longitude;
+      const lat = position.coords.latitude;
+      const userLocation = ol.proj.fromLonLat([lon, lat]);
+      marker.getGeometry().setCoordinates(userLocation);
+      // Optionally center map
+      map.getView().setCenter(userLocation);
+      map.getView().setZoom(15);
 
-navigator.geolocation.watchPosition((position) => {
-  const lon = position.coords.longitude;
-  const lat = position.coords.latitude;
-  const userLocation = ol.proj.fromLonLat([lon, lat]);
-  marker.getGeometry().setCoordinates(userLocation);
-  map.getView().setCenter(userLocation);
-  map.getView().setZoom(15);
+      // Geofence check
+      const circle = geofenceFeature.getGeometry();
+      // Simple distance check
+      const distance = ol.sphere.getDistance(
+        ol.proj.toLonLat(circle.getCenter()),
+        [lon, lat]
+      );
+      const inside = distance <= circle.getRadius();
 
-  // Geofencing check
-  const circle = geofence.getGeometry();
-  const inside = ol.extent.containsCoordinate(circle.getExtent(), userLocation) &&
-                 circle.intersectsCoordinate(userLocation);
-
-  if (inside && !wasInsideGeofence) {
-    alert('You have entered the geofenced area!');
-  } else if (!inside && wasInsideGeofence) {
-    alert('You have exited the geofenced area!');
-  }
-  wasInsideGeofence = inside;
-}, ...);
+      if (inside && !wasInsideGeofence) {
+        alert('You have entered the geofenced area!');
+      } else if (!inside && wasInsideGeofence) {
+        alert('You have exited the geofenced area!');
+      }
+      wasInsideGeofence = inside;
+    }, (error) => {
+      console.error('Geolocation error:', error.message);
+      alert('Unable to access your location. Please enable GPS or location services.');
+    });
   </script>
 </body>
 </html>
-
