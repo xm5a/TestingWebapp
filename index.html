@@ -27,7 +27,7 @@
     const markerStyle = new ol.style.Style({
       image: new ol.style.Icon({
         anchor: [0.5, 1],
-        src: 'location.png',
+        src: 'location.png', // Use your own icon
         scale: 0.05
       })
     });
@@ -39,11 +39,18 @@
     // === Geofence setup ===
     const geofenceCenter = initialCenter; // Same as initial center
     const geofenceRadius = 500; // meters
+
+    // Helper to get color-coded style
+    function getGeofenceStyle(inside) {
+      return new ol.style.Style({
+        stroke: new ol.style.Stroke({ color: inside ? 'green' : 'red', width: 2 }),
+        fill: new ol.style.Fill({ color: inside ? 'rgba(0,200,0,0.15)' : 'rgba(255,0,0,0.15)' })
+      });
+    }
+
     const geofenceFeature = new ol.Feature(new ol.geom.Circle(geofenceCenter, geofenceRadius));
-    geofenceFeature.setStyle(new ol.style.Style({
-      stroke: new ol.style.Stroke({ color: 'red', width: 2 }),
-      fill: new ol.style.Fill({ color: 'rgba(255,0,0,0.15)' })
-    }));
+    let isInside = false; // Track state for coloring
+    geofenceFeature.setStyle(getGeofenceStyle(isInside));
     const geofenceLayer = new ol.layer.Vector({
       source: new ol.source.Vector({ features: [geofenceFeature] })
     });
@@ -57,18 +64,22 @@
       const lat = position.coords.latitude;
       const userLocation = ol.proj.fromLonLat([lon, lat]);
       marker.getGeometry().setCoordinates(userLocation);
-      // Optionally center map
       map.getView().setCenter(userLocation);
       map.getView().setZoom(15);
 
-      // Geofence check
+      // Geofence check using real-world distance
       const circle = geofenceFeature.getGeometry();
-      // Simple distance check
       const distance = ol.sphere.getDistance(
         ol.proj.toLonLat(circle.getCenter()),
         [lon, lat]
       );
       const inside = distance <= circle.getRadius();
+
+      // Update geofence color if state changes
+      if (inside !== isInside) {
+        geofenceFeature.setStyle(getGeofenceStyle(inside));
+        isInside = inside;
+      }
 
       if (inside && !wasInsideGeofence) {
         alert('You have entered the geofenced area!');
